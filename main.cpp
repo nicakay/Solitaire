@@ -19,7 +19,7 @@ int main()
     // Create a Deck of 52 cards
     Card deck[52];
 
-    // Initialize the deck
+    // Initialise the deck
     for (int i = 0; i < 52; i++)
     {
         deck[i].rank = i % 13 + 1;
@@ -28,6 +28,7 @@ int main()
     }
 
     // Shuffle the deck using the Fisher-Yates shuffle algorithm
+
     for (int i = 51; i > 0; i--)
     {
         int j = rand() % (i + 1);
@@ -39,14 +40,20 @@ int main()
 
     int cardIndex = 0;
 
-    // Copy the shuffled deck into the two dimentional array 
+    // Copy the shuffled deck into the two dimentional array
     for (int i = 0; i < 7; i++)
-    {  
+    {
         for (int j = 0; j <= i; j++)
         {
             board[i][j] = deck[cardIndex];
             cardIndex++;
         }
+    }
+
+    // Set the visibility of the last card of each column to true
+    for (int i = 0; i < 7; i++)
+    {
+        board[i][i].visible = true;
     }
 
     // ---- LOAD TEXTURES ----
@@ -60,7 +67,7 @@ int main()
     {
         // buffer which stores a temporary string that will be the name of the file (the file path)
         char filename[32];
-        
+
         // Clubs front textures
         snprintf(filename, sizeof(filename), "images/cards/c%d.png", i + 1);
         clubsTextures[i] = LoadTexture(filename);
@@ -87,27 +94,51 @@ int main()
         BeginDrawing();
         ClearBackground(DARKGREEN);
 
-        Texture2D testTexture;
-        switch (board[0][0].suit)
+        int cardSpacingX = 80;
+        int cardSpacingY = 100;
+
+        for (int row = 0; row < 7; row++)
         {
-        case 0:
-            DrawTexture(clubsTextures[board[0][0].rank], 50, 50, WHITE);
-            break;
-        
-        case 1:
-            DrawTexture(diamondsTextures[board[0][0].rank], 50, 50, WHITE);
-            break;
+            int posX = 150 + row * cardSpacingX;
+            int posY = 10 + cardSpacingY;
 
-        case 2:
-            DrawTexture(heartsTextures[board[0][0].rank], 50, 50, WHITE);
-            break;
+            for (int col = 0; col <= row; col++)
+            {
+                int suit = board[row][col].suit;
+                int rank = board[row][col].rank;
+                bool visible = board[row][col].visible;
 
-        case 3:
-            DrawTexture(spadesTextures[board[0][0].rank], 50, 50, WHITE);
-            break;
-        
-        default:
-            break;
+                if (!visible)
+                {
+                    DrawTexture(back, posX, posY, WHITE);
+                }
+                else
+                {
+                    switch (suit)
+                    {
+                    case 0:
+                        DrawTexture(clubsTextures[rank - 1], posX, posY, WHITE);
+                        break;
+
+                    case 1:
+                        DrawTexture(diamondsTextures[rank - 1], posX, posY, WHITE);
+                        break;
+
+                    case 2:
+                        DrawTexture(heartsTextures[rank - 1], posX, posY, WHITE);
+                        break;
+
+                    case 3:
+                        DrawTexture(spadesTextures[rank - 1], posX, posY, WHITE);
+                        break;
+
+                    default:
+                        break;
+                    }
+                }
+
+                posY += 20; // Adjust the Y position for the cards in the same column
+            }
         }
 
         EndDrawing();
