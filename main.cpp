@@ -1,6 +1,8 @@
 #include "raylib.h"
 #include <algorithm>
 
+#define LIGHTBLUE (Color) {215, 241, 245, 255}
+
 // Define Card
 struct Card
 {
@@ -17,6 +19,16 @@ void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHei
 
     rect.x = (index % cols) * rect.width;
     rect.y = (index / cols) * rect.height;
+}
+
+Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
+{
+    Rectangle thisCard;
+    thisCard.x = cardPos.x;
+    thisCard.y = cardPos.y;
+    thisCard.width = cardWidth;
+    thisCard.height = cardHeight;
+    return thisCard;
 }
 
 int main()
@@ -46,7 +58,7 @@ int main()
     }
 
     // Two-dimensional array to store the layout of the cards on the board
-    Card board[7][7];
+    Card cardsOnTheBoard[7][20];
 
     int cardIndex = 0;
 
@@ -55,45 +67,29 @@ int main()
     {
         for (int j = 0; j <= i; j++)
         {
-            board[i][j] = deck[cardIndex];
+            cardsOnTheBoard[i][j] = deck[cardIndex];
             cardIndex++;
         }
     }
 
-    // Set the visibility of the last card of each column to true
+    // At the beginning of the game there are 28 cards on the board, the remaining 24 is in hand
+    Card cardsInHand[24];
+
+    // Copy the remaining cards in the deck array to the cardsInHand array
+    for (int i = 28; i < 52; i++)
+    {
+        cardsInHand[i] = deck[i];
+    }
+
+    // Set the visibility of the last card of each column on the board to true
     for (int i = 0; i < 7; i++)
     {
-        board[i][i].visible = true;
+        cardsOnTheBoard[i][i].visible = true;
     }
 
     // ---- LOAD TEXTURES ----
 
     // Load Front textures
-    Texture2D clubsTextures[13];
-    Texture2D diamondsTextures[13];
-    Texture2D heartsTextures[13];
-    Texture2D spadesTextures[13];
-    for (int i = 0; i < 13; i++)
-    {
-        // buffer which stores a temporary string that will be the name of the file (the file path)
-        char filename[32];
-
-        // Clubs front textures
-        snprintf(filename, sizeof(filename), "images/cards/c%d.png", i + 1);
-        clubsTextures[i] = LoadTexture(filename);
-
-        // Diamonds front textures
-        snprintf(filename, sizeof(filename), "images/cards/d%d.png", i + 1);
-        diamondsTextures[i] = LoadTexture(filename);
-
-        // Hearts front textures
-        snprintf(filename, sizeof(filename), "images/cards/h%d.png", i + 1);
-        heartsTextures[i] = LoadTexture(filename);
-
-        // Spades front textures
-        snprintf(filename, sizeof(filename), "images/cards/s%d.png", i + 1);
-        spadesTextures[i] = LoadTexture(filename);
-    }
 
     // Loading a texture sprite for each suit
     Texture2D clubsTex = LoadTexture("images/cards/Clubs-88x124.png");
@@ -127,14 +123,22 @@ int main()
     backRec.x = 0.f + backTex.width / 2;
     backRec.y = 0.f;
 
+    // Set the mouse pointer
+    Vector2 mousePointer = {0.f, 0.f};
+
     SetTargetFPS(60);
     while (!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(DARKGREEN);
 
+        // Update the mouse pointer Vector to the current mouse position
+        mousePointer = GetMousePosition();
+
         int cardSpacingX = 100;
-        int cardSpacingY = 50;
+        int cardSpacingY = 20;
+
+        // Draw the cards on the board
 
         for (int row = 0; row < 7; row++)
         {
@@ -143,10 +147,11 @@ int main()
 
             for (int col = 0; col <= row; col++)
             {
-                int suit = board[row][col].suit;
-                int rank = board[row][col].rank;
-                bool visible = board[row][col].visible;
+                int suit = cardsOnTheBoard[row][col].suit;
+                int rank = cardsOnTheBoard[row][col].rank;
+                bool visible = cardsOnTheBoard[row][col].visible;
                 // Vector posision of the current card
+                posY += cardSpacingY;
                 Vector2 cardPos{posX, posY};
 
                 // If the card is facing down
@@ -158,22 +163,55 @@ int main()
                 // If the card is facing up
                 else
                 {
+                    Rectangle thisCard;
                     switch (suit) // If the suit is
                     {
                     case 0: // Clubs
-                        DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, WHITE);
+                        thisCard = MakeThisRectangle(clubsRec[rank - 1].width, clubsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        {
+                            DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, LIGHTBLUE);
+                        }
+                        else
+                        {
+                            DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, WHITE);
+                        }
                         break;
 
                     case 1: // Diamonds
-                        DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, WHITE);
+                        thisCard = MakeThisRectangle(diamondsRec[rank - 1].width, diamondsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        {
+                            DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, LIGHTBLUE);
+                        }
+                        else
+                        {
+                            DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, WHITE);
+                        }
                         break;
 
                     case 2: // Hearts
-                        DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, WHITE);
+                        thisCard = MakeThisRectangle(heartsRec[rank - 1].width, heartsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        {
+                            DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, LIGHTBLUE);
+                        }
+                        else
+                        {
+                            DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, WHITE);
+                        }
                         break;
 
                     default: // Spades
-                        DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, WHITE);
+                        thisCard = MakeThisRectangle(spadesRec[rank - 1].width, spadesRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        {
+                            DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, LIGHTBLUE);
+                        }
+                        else
+                        {
+                            DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, WHITE);
+                        }
                         break;
                     }
                 }
@@ -186,13 +224,6 @@ int main()
     }
 
     // Unload Textures from VRAM
-    for (int i = 0; i < 13; i++)
-    {
-        UnloadTexture(clubsTextures[i]);
-        UnloadTexture(diamondsTextures[i]);
-        UnloadTexture(heartsTextures[i]);
-        UnloadTexture(spadesTextures[i]);
-    }
     UnloadTexture(clubsTex);
     UnloadTexture(diamondsTex);
     UnloadTexture(heartsTex);
