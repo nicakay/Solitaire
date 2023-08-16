@@ -9,6 +9,16 @@ struct Card
     bool visible; // face-up or face-down
 };
 
+// Function that sets properties of each rectangle that I need to draw the card front textures with
+void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHeight, int rows, int cols)
+{
+    rect.width = texWidth / cols;
+    rect.height = texHeight / rows;
+
+    rect.x = (index % cols) * rect.width;
+    rect.y = (index / cols) * rect.height;
+}
+
 int main()
 {
     // Initialize the game Window
@@ -85,8 +95,37 @@ int main()
         spadesTextures[i] = LoadTexture(filename);
     }
 
+    // Loading a texture sprite for each suit
+    Texture2D clubsTex = LoadTexture("images/cards/Clubs-88x124.png");
+    Texture2D diamondsTex = LoadTexture("images/cards/Diamonds-88x124.png");
+    Texture2D heartsTex = LoadTexture("images/cards/Hearts-88x124.png");
+    Texture2D spadesTex = LoadTexture("images/cards/Spades-88x124.png");
+
+    // Number of the rows and columns in each sprite sheet, as it happens is the same for all
+    int colsNum = 5;
+    int rowsNum = 3;
+
+    Rectangle clubsRec[13];
+    Rectangle diamondsRec[13];
+    Rectangle heartsRec[13];
+    Rectangle spadesRec[13];
+
+    // Set the Rectangle values for each rectangle in all the 4 arrays by callin a fuction
+    for (int i = 0; i < 13; i++)
+    {
+        SetRectangleProperties(clubsRec[i], i, clubsTex.width, clubsTex.height, rowsNum, colsNum);
+        SetRectangleProperties(diamondsRec[i], i, diamondsTex.width, diamondsTex.height, rowsNum, colsNum);
+        SetRectangleProperties(heartsRec[i], i, heartsTex.width, heartsTex.height, rowsNum, colsNum);
+        SetRectangleProperties(spadesRec[i], i, spadesTex.width, spadesTex.height, rowsNum, colsNum);
+    }
+
     // Load Cards Back texture
-    Texture2D back = LoadTexture("images/cards/Back1.png");
+    Texture2D backTex = LoadTexture("images/cards/Card_Back-88x124.png");
+    Rectangle backRec;
+    backRec.width = backTex.width / 2;
+    backRec.height = backTex.height;
+    backRec.x = 0.f + backTex.width / 2;
+    backRec.y = 0.f;
 
     SetTargetFPS(60);
     while (!WindowShouldClose())
@@ -94,45 +133,47 @@ int main()
         BeginDrawing();
         ClearBackground(DARKGREEN);
 
-        int cardSpacingX = 80;
-        int cardSpacingY = 100;
+        int cardSpacingX = 100;
+        int cardSpacingY = 50;
 
         for (int row = 0; row < 7; row++)
         {
-            int posX = 150 + row * cardSpacingX;
-            int posY = 10 + cardSpacingY;
+            float posX = 150.f + row * cardSpacingX;
+            float posY = 10.f + cardSpacingY;
 
             for (int col = 0; col <= row; col++)
             {
                 int suit = board[row][col].suit;
                 int rank = board[row][col].rank;
                 bool visible = board[row][col].visible;
+                // Vector posision of the current card
+                Vector2 cardPos{posX, posY};
 
+                // If the card is facing down
                 if (!visible)
                 {
-                    DrawTexture(back, posX, posY, WHITE);
+                    // Draw the back of the card
+                    DrawTextureRec(backTex, backRec, cardPos, WHITE);
                 }
+                // If the card is facing up
                 else
                 {
-                    switch (suit)
+                    switch (suit) // If the suit is
                     {
-                    case 0:
-                        DrawTexture(clubsTextures[rank - 1], posX, posY, WHITE);
+                    case 0: // Clubs
+                        DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, WHITE);
                         break;
 
-                    case 1:
-                        DrawTexture(diamondsTextures[rank - 1], posX, posY, WHITE);
+                    case 1: // Diamonds
+                        DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, WHITE);
                         break;
 
-                    case 2:
-                        DrawTexture(heartsTextures[rank - 1], posX, posY, WHITE);
+                    case 2: // Hearts
+                        DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, WHITE);
                         break;
 
-                    case 3:
-                        DrawTexture(spadesTextures[rank - 1], posX, posY, WHITE);
-                        break;
-
-                    default:
+                    default: // Spades
+                        DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, WHITE);
                         break;
                     }
                 }
@@ -152,7 +193,11 @@ int main()
         UnloadTexture(heartsTextures[i]);
         UnloadTexture(spadesTextures[i]);
     }
-    UnloadTexture(back);
+    UnloadTexture(clubsTex);
+    UnloadTexture(diamondsTex);
+    UnloadTexture(heartsTex);
+    UnloadTexture(spadesTex);
+    UnloadTexture(backTex);
 
     // Close the Window
     CloseWindow();
