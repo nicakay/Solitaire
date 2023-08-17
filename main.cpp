@@ -1,7 +1,11 @@
 #include "raylib.h"
 #include <algorithm>
 
-#define LIGHTBLUE (Color) {215, 241, 245, 255}
+// Define custom colors
+#define LIGHTBLUE \
+    (Color) { 215, 241, 245, 255 }
+#define DARKERGREEN \
+    (Color) { 0, 74, 10, 255 }
 
 // Define Card
 struct Card
@@ -35,7 +39,7 @@ int main()
 {
     // Initialize the game Window
     const int windowWidth = 1000;
-    const int windowHeight = 600;
+    const int windowHeight = 800;
     InitWindow(windowWidth, windowHeight, "Solitaire");
 
     // Create a Deck of 52 cards
@@ -74,11 +78,15 @@ int main()
 
     // At the beginning of the game there are 28 cards on the board, the remaining 24 is in hand
     Card cardsInHand[24];
+    // A tracker that will help me to track the number of the cards left in hand
+    int cardsInHandTracker = 24;
+    // Boolean that tracks if a card is drawn from the hand deck
+    bool isCardDrawn = false;
 
     // Copy the remaining cards in the deck array to the cardsInHand array
-    for (int i = 28; i < 52; i++)
+    for (int i = 0; i < 24; i++)
     {
-        cardsInHand[i] = deck[i];
+        cardsInHand[i] = deck[i + 28];
     }
 
     // Set the visibility of the last card of each column on the board to true
@@ -106,7 +114,7 @@ int main()
     Rectangle heartsRec[13];
     Rectangle spadesRec[13];
 
-    // Set the Rectangle values for each rectangle in all the 4 arrays by callin a fuction
+    // Set the Rectangle values for each rectangle in all the 4 arrays by calling a fuction
     for (int i = 0; i < 13; i++)
     {
         SetRectangleProperties(clubsRec[i], i, clubsTex.width, clubsTex.height, rowsNum, colsNum);
@@ -123,8 +131,27 @@ int main()
     backRec.x = 0.f + backTex.width / 2;
     backRec.y = 0.f;
 
+    // Load the Deck texture
+    Texture2D deckTex = LoadTexture("images/cards/Card_DeckA-88x140.png");
+    Rectangle deckRec;
+    deckRec.width = deckTex.width / 3;
+    deckRec.height = deckTex.height;
+    deckRec.x = 0.f;
+    deckRec.y = 0.f;
+
     // Set the mouse pointer
     Vector2 mousePointer = {0.f, 0.f};
+
+    // Set the variables for the position of some of the cards
+    int handPosX = 150; // Cards in hand X
+    int handPosY = 22;  // Cards in hand Y
+
+    // The Rectangle for the cards in hand deck
+    Rectangle cardsInHandRec;
+    cardsInHandRec.width = deckRec.width;
+    cardsInHandRec.height = deckRec.height;
+    cardsInHandRec.x = handPosX;
+    cardsInHandRec.y = handPosY;
 
     SetTargetFPS(60);
     while (!WindowShouldClose())
@@ -136,14 +163,72 @@ int main()
         mousePointer = GetMousePosition();
 
         int cardSpacingX = 100;
-        int cardSpacingY = 20;
+        int cardSpacingY = 15;
 
-        // Draw the cards on the board
+        // Draw the top part of the board
+        DrawRectangle(0, 0, windowWidth, 170, DARKERGREEN);
+
+        // Draw an empty space for cards in hand
+        DrawRectangle(handPosX, handPosY, backRec.width, backRec.height, DARKGREEN);
+        DrawText("E", 160, 32, 50, DARKERGREEN);
+
+        Vector2 handPos{static_cast<float>(handPosX), static_cast<float>(handPosY)};
+
+        // Draw the deck texture
+        DrawTextureRec(deckTex, deckRec, handPos, WHITE);
+
+        int righHand = 0;
+
+        // Check if the mouse cursor is above the deck texture and if there's left mouse click
+        if (CheckCollisionPointRec(mousePointer, cardsInHandRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (!isCardDrawn && cardsInHandTracker > 0)
+            {
+                // Set the flag to true
+                isCardDrawn = true;
+
+                // Draw a card from the cards-in-hand deck and put it next to it
+                righHand += 1;                             // Cards to the right of the hand deck (Face-up)
+                int rank = cardsInHand[righHand - 1].rank; // Every next card we draw from the deck in hand
+                Vector2 rightHandPos{static_cast<float>(handPosX + 100), static_cast<float>(handPosY)};
+
+                switch (cardsInHand[righHand - 1].suit)
+                {
+                case 0:
+                    DrawTextureRec(clubsTex, clubsRec[rank - 1], rightHandPos, WHITE);
+                    break;
+
+                case 1:
+                    DrawTextureRec(diamondsTex, diamondsRec[rank - 1], rightHandPos, WHITE);
+                    break;
+
+                case 2:
+                    DrawTextureRec(heartsTex, heartsRec[rank - 1], rightHandPos, WHITE);
+                    break;
+
+                default:
+                    DrawTextureRec(spadesTex, spadesRec[rank - 1], rightHandPos, WHITE);
+                    break;
+                }
+            }
+        }
+
+        // Draw the empty spaces for Aces and each suit
+        DrawRectangle(handPosX + 300, handPosY, backRec.width, backRec.height, DARKGREEN);
+        DrawText("A", handPosX + 320, handPosY + 20, 50, DARKERGREEN);
+        DrawRectangle(handPosX + 400, handPosY, backRec.width, backRec.height, DARKGREEN);
+        DrawText("A", handPosX + 420, handPosY + 20, 50, DARKERGREEN);
+        DrawRectangle(handPosX + 500, handPosY, backRec.width, backRec.height, DARKGREEN);
+        DrawText("A", handPosX + 520, handPosY + 20, 50, DARKERGREEN);
+        DrawRectangle(handPosX + 600, handPosY, backRec.width, backRec.height, DARKGREEN);
+        DrawText("A", handPosX + 620, handPosY + 20, 50, DARKERGREEN);
+
+        // Draw the cards on the board (the main solitaire layout)
 
         for (int row = 0; row < 7; row++)
         {
             float posX = 150.f + row * cardSpacingX;
-            float posY = 10.f + cardSpacingY;
+            float posY = 170.f + cardSpacingY;
 
             for (int col = 0; col <= row; col++)
             {
@@ -221,6 +306,34 @@ int main()
         }
 
         EndDrawing();
+
+        if (isCardDrawn) // If a card has been drawn, continue drawing
+        {
+            int rank = cardsInHand[cardsInHandTracker - 1].rank;
+            Vector2 rightHandPos{static_cast<float>(handPosX + 100), static_cast<float>(handPosY)};
+
+            switch (cardsInHand[cardsInHandTracker - 1].suit)
+            {
+            case 0:
+                DrawTextureRec(clubsTex, clubsRec[rank - 1], rightHandPos, WHITE);
+                break;
+            case 1:
+                DrawTextureRec(diamondsTex, diamondsRec[rank - 1], rightHandPos, WHITE);
+                break;
+            case 2:
+                DrawTextureRec(heartsTex, heartsRec[rank - 1], rightHandPos, WHITE);
+                break;
+            default:
+                DrawTextureRec(spadesTex, spadesRec[rank - 1], rightHandPos, WHITE);
+                break;
+            }
+        }
+
+        // Reset the flag after the card has been drawn
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            isCardDrawn = false;
+        }
     }
 
     // Unload Textures from VRAM
@@ -229,6 +342,7 @@ int main()
     UnloadTexture(heartsTex);
     UnloadTexture(spadesTex);
     UnloadTexture(backTex);
+    UnloadTexture(deckTex);
 
     // Close the Window
     CloseWindow();
