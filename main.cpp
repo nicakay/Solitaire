@@ -15,6 +15,23 @@ struct Card
     bool visible; // face-up or face-down
 };
 
+// Define max numebr of cards that can be drawn from hand
+#define MAX_DRAWN_CARDS 24
+
+// Define properties of the drawn card
+struct DrawnCard
+{
+    int rank;
+    int suit;
+    Vector2 position;
+};
+
+// Initiate an array of type of DrawnCard
+DrawnCard drawnCards[MAX_DRAWN_CARDS];
+// Track the number of cards that has been drawn so far. At the beginning of the game it's 0
+int numDrawnCards = 0;
+
+
 // Function that sets properties of each rectangle that I need to draw the card front textures with
 void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHeight, int rows, int cols)
 {
@@ -80,8 +97,6 @@ int main()
     Card cardsInHand[24];
     // A tracker that will help me to track the number of the cards left in hand
     int cardsInHandTracker = 24;
-    // Boolean that tracks if a card is drawn from the hand deck
-    bool isCardDrawn = false;
 
     // Copy the remaining cards in the deck array to the cardsInHand array
     for (int i = 0; i < 24; i++)
@@ -145,6 +160,7 @@ int main()
     // Set the variables for the position of some of the cards
     int handPosX = 150; // Cards in hand X
     int handPosY = 22;  // Cards in hand Y
+    int righHand = 0;   // Tracking the number of cards drawn from hand
 
     // The Rectangle for the cards in hand deck
     Rectangle cardsInHandRec;
@@ -174,42 +190,38 @@ int main()
 
         Vector2 handPos{static_cast<float>(handPosX), static_cast<float>(handPosY)};
 
-        // Draw the deck texture
-        DrawTextureRec(deckTex, deckRec, handPos, WHITE);
-
-        int righHand = 0;
+        if (cardsInHandTracker > 0)
+        {
+            // Draw the deck texture
+            DrawTextureRec(deckTex, deckRec, handPos, WHITE);
+        }
 
         // Check if the mouse cursor is above the deck texture and if there's left mouse click
         if (CheckCollisionPointRec(mousePointer, cardsInHandRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            if (!isCardDrawn && cardsInHandTracker > 0)
+            // Check if there are ny cards in hand left, and if the max number of drawn cards hasn't been reached
+            if (cardsInHandTracker > 0 && numDrawnCards < MAX_DRAWN_CARDS)
             {
-                // Set the flag to true
-                isCardDrawn = true;
 
                 // Draw a card from the cards-in-hand deck and put it next to it
+                cardsInHandTracker--;
                 righHand += 1;                             // Cards to the right of the hand deck (Face-up)
                 int rank = cardsInHand[righHand - 1].rank; // Every next card we draw from the deck in hand
-                Vector2 rightHandPos{static_cast<float>(handPosX + 100), static_cast<float>(handPosY)};
 
-                switch (cardsInHand[righHand - 1].suit)
+                // Reset numDrawnCards if it reaches 2
+                if (numDrawnCards > 2)
                 {
-                case 0:
-                    DrawTextureRec(clubsTex, clubsRec[rank - 1], rightHandPos, WHITE);
-                    break;
-
-                case 1:
-                    DrawTextureRec(diamondsTex, diamondsRec[rank - 1], rightHandPos, WHITE);
-                    break;
-
-                case 2:
-                    DrawTextureRec(heartsTex, heartsRec[rank - 1], rightHandPos, WHITE);
-                    break;
-
-                default:
-                    DrawTextureRec(spadesTex, spadesRec[rank - 1], rightHandPos, WHITE);
-                    break;
+                    numDrawnCards = 0;
                 }
+
+                // Set the vection position for each card drawn from han
+                Vector2 drawnCardPos = {static_cast<float>(handPosX) + 100 + (numDrawnCards * 20), static_cast<float>(handPosY)};
+
+                // Assign parameters to each card drawn
+                drawnCards[numDrawnCards].rank = rank;
+                drawnCards[numDrawnCards].suit = cardsInHand[righHand - 1].suit;
+                drawnCards[numDrawnCards].position = drawnCardPos;
+                numDrawnCards++;
             }
         }
 
@@ -305,35 +317,31 @@ int main()
             }
         }
 
-        EndDrawing();
-
-        if (isCardDrawn) // If a card has been drawn, continue drawing
+        // Draw textures for the cards drawn from the hand
+        for (int i = 0; i < numDrawnCards; i++)
         {
-            int rank = cardsInHand[cardsInHandTracker - 1].rank;
-            Vector2 rightHandPos{static_cast<float>(handPosX + 100), static_cast<float>(handPosY)};
+            int rank = drawnCards[i].rank;
+            Vector2 drawnCardPos = drawnCards[i].position;
 
-            switch (cardsInHand[cardsInHandTracker - 1].suit)
+            switch (drawnCards[i].suit)
             {
-            case 0:
-                DrawTextureRec(clubsTex, clubsRec[rank - 1], rightHandPos, WHITE);
-                break;
-            case 1:
-                DrawTextureRec(diamondsTex, diamondsRec[rank - 1], rightHandPos, WHITE);
-                break;
-            case 2:
-                DrawTextureRec(heartsTex, heartsRec[rank - 1], rightHandPos, WHITE);
-                break;
-            default:
-                DrawTextureRec(spadesTex, spadesRec[rank - 1], rightHandPos, WHITE);
-                break;
+                case 0:
+                    DrawTextureRec(clubsTex, clubsRec[rank - 1], drawnCardPos, WHITE);
+                    break;
+                case 1:
+                    DrawTextureRec(diamondsTex, diamondsRec[rank - 1], drawnCardPos, WHITE);
+                    break;
+                case 2:
+                    DrawTextureRec(heartsTex, heartsRec[rank - 1], drawnCardPos, WHITE);
+                    break;
+                default:
+                    DrawTextureRec(spadesTex, spadesRec[rank - 1], drawnCardPos, WHITE);
+                    break;
             }
         }
 
-        // Reset the flag after the card has been drawn
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-        {
-            isCardDrawn = false;
-        }
+        EndDrawing();
+
     }
 
     // Unload Textures from VRAM
