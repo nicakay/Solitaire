@@ -7,12 +7,13 @@
 #define DARKERGREEN \
     (Color) { 0, 74, 10, 255 }
 
-// Define Card
+// Define Card as it will show on the board
 struct Card
 {
-    int rank;     // from 1 (Ace) tp 13 (King)
-    int suit;     // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
-    bool visible; // face-up or face-down
+    int rank;      // from 1 (Ace) tp 13 (King)
+    int suit;      // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
+    bool visible;  // face-up or face-down
+    bool selected; // tells if the card is or is not selected by the user
 };
 
 // Define max numebr of cards that can be drawn from hand
@@ -28,9 +29,16 @@ struct DrawnCard
 
 // Initiate an array of type of DrawnCard
 DrawnCard drawnCards[MAX_DRAWN_CARDS];
-// Track the number of cards that has been drawn so far. At the beginning of the game it's 0
-int numDrawnCards = 0;
 
+// State to track the card seletion on the board
+typedef enum
+{
+    CARD_NONE,     // No card selected
+    CARD_SELECTED, // A card has been selected
+    CARD_CONFIRMED // It's been one frame since the card was selected and no deleselection occurred
+} CardState;
+
+CardState cardState;
 
 // Function that sets properties of each rectangle that I need to draw the card front textures with
 void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHeight, int rows, int cols)
@@ -42,21 +50,88 @@ void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHei
     rect.y = (index / cols) * rect.height;
 }
 
+// Finction that makes a rectangle of each card that is facing up on the board
 Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
 {
-    Rectangle thisCard;
-    thisCard.x = cardPos.x;
-    thisCard.y = cardPos.y;
-    thisCard.width = cardWidth;
-    thisCard.height = cardHeight;
-    return thisCard;
+    Rectangle thisCardRec;
+    thisCardRec.x = cardPos.x;
+    thisCardRec.y = cardPos.y;
+    thisCardRec.width = cardWidth;
+    thisCardRec.height = cardHeight;
+    return thisCardRec;
+}
+
+void SelectCard(Card cardsOnTheBoard[][7], int suit, int rank, bool *thisCardSelected, int row, int col, Card **currentlySelectedCard)
+{
+    // Tracks the number of frames
+    static int numFrames{};
+
+    printf("Current card state: %d\n", cardState);
+
+    if (cardState == CARD_NONE || cardState == CARD_CONFIRMED)
+    {
+        printf("Transitioning to CARD_SELECTED...\n");
+        cardState = CARD_SELECTED;
+        numFrames = 0;
+
+        // Select this card
+        *thisCardSelected = true;
+        // Update the pointer
+        *currentlySelectedCard = &cardsOnTheBoard[row][col];
+        return;
+    }
+    else if (cardState == CARD_SELECTED)
+    {
+        // Update number of frames
+        numFrames++;
+
+        // Delay 240 frames
+        if (numFrames < 240)
+            return;
+
+        // Reset the numFrames to 0
+        numFrames = 0;
+
+        printf("Processing already selected card...\n");
+        // Check if this card is the came as the card that is selected
+        if (*currentlySelectedCard == &cardsOnTheBoard[row][col])
+        {
+            // Deselect this card if it's already selected
+            cardState = CARD_NONE;
+            printf("Deselecting the card...\n");
+            *thisCardSelected = false;
+            *currentlySelectedCard = NULL;
+        }
+        // If this is the second selected card
+        else
+        {
+            // Compare this card to the previously selected card
+            printf("Selecting the card...\n");
+            if (((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) && rank - (*currentlySelectedCard)->rank == 1)
+            {
+                printf("Valid move detected!\n");
+                // If the suit of the previous card has oposite colour and if the rank is -1 of the current card - Move the previous card on to this card
+            }
+
+            // Deselect the previously selected card, if any was selected
+            if (*currentlySelectedCard != NULL)
+            {
+                printf("Deselecting the previously selected card...\n");
+                (*currentlySelectedCard)->selected = false;
+            }
+
+            // Select the current card and update the pointer
+            *thisCardSelected = true;
+            *currentlySelectedCard = &cardsOnTheBoard[row][col];
+        }
+    }
 }
 
 int main()
 {
     // Initialize the game Window
-    const int windowWidth = 1000;
-    const int windowHeight = 800;
+    const int windowWidth{1000};
+    const int windowHeight{800};
     InitWindow(windowWidth, windowHeight, "Solitaire");
 
     // Create a Deck of 52 cards
@@ -67,7 +142,8 @@ int main()
     {
         deck[i].rank = i % 13 + 1;
         deck[i].suit = i / 13;
-        deck[i].visible = false; // Initially, all cards are face-down
+        deck[i].visible = false;  // Initially, all cards are face-down
+        deck[i].selected = false; // Initially, all cards are unselected
     }
 
     // Shuffle the deck using the Fisher-Yates shuffle algorithm
@@ -79,10 +155,9 @@ int main()
     }
 
     // Two-dimensional array to store the layout of the cards on the board
-    Card cardsOnTheBoard[7][20];
+    Card cardsOnTheBoard[30][7];
 
-    int cardIndex = 0;
-
+    int cardIndex{};
     // Copy the shuffled deck into the two dimentional array
     for (int i = 0; i < 7; i++)
     {
@@ -95,8 +170,12 @@ int main()
 
     // At the beginning of the game there are 28 cards on the board, the remaining 24 is in hand
     Card cardsInHand[24];
+    // Stores the selected card so that I can compare it to the second selected card | NULL means it's not selected
+    Card *currentlySelectedCard = NULL;
+    // Set the CardState enum to NONE - No card is selected at the beginning of the game
+    cardState = CARD_NONE;
     // A tracker that will help me to track the number of the cards left in hand
-    int cardsInHandTracker = 24;
+    int cardsInHandTracker{24};
 
     // Copy the remaining cards in the deck array to the cardsInHand array
     for (int i = 0; i < 24; i++)
@@ -121,8 +200,8 @@ int main()
     Texture2D spadesTex = LoadTexture("images/cards/Spades-88x124.png");
 
     // Number of the rows and columns in each sprite sheet, as it happens is the same for all
-    int colsNum = 5;
-    int rowsNum = 3;
+    int colsNum{5};
+    int rowsNum{3};
 
     Rectangle clubsRec[13];
     Rectangle diamondsRec[13];
@@ -158,9 +237,9 @@ int main()
     Vector2 mousePointer = {0.f, 0.f};
 
     // Set the variables for the position of some of the cards
-    int handPosX = 150; // Cards in hand X
-    int handPosY = 22;  // Cards in hand Y
-    int righHand = 0;   // Tracking the number of cards drawn from hand
+    int handPosX{150}; // Cards in hand X
+    int handPosY{22};  // Cards in hand Y
+    int righHand{0};   // Tracking the number of cards drawn from hand and put on the right side of it
 
     // The Rectangle for the cards in hand deck
     Rectangle cardsInHandRec;
@@ -168,6 +247,10 @@ int main()
     cardsInHandRec.height = deckRec.height;
     cardsInHandRec.x = handPosX;
     cardsInHandRec.y = handPosY;
+    // Tracks the number of cards that has been drawn so far. At the beginning of the game it's 0
+    int numDrawnCards{};
+    // Tracks the number of drawn cards that display on the screen from 0 to 2
+    int oneTwoThree{};
 
     SetTargetFPS(60);
     while (!WindowShouldClose())
@@ -178,8 +261,8 @@ int main()
         // Update the mouse pointer Vector to the current mouse position
         mousePointer = GetMousePosition();
 
-        int cardSpacingX = 100;
-        int cardSpacingY = 15;
+        int cardSpacingX{100};
+        int cardSpacingY{15};
 
         // Draw the top part of the board
         DrawRectangle(0, 0, windowWidth, 170, DARKERGREEN);
@@ -199,6 +282,7 @@ int main()
         // Check if the mouse cursor is above the deck texture and if there's left mouse click
         if (CheckCollisionPointRec(mousePointer, cardsInHandRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
+
             // Check if there are ny cards in hand left, and if the max number of drawn cards hasn't been reached
             if (cardsInHandTracker > 0 && numDrawnCards < MAX_DRAWN_CARDS)
             {
@@ -208,20 +292,23 @@ int main()
                 righHand += 1;                             // Cards to the right of the hand deck (Face-up)
                 int rank = cardsInHand[righHand - 1].rank; // Every next card we draw from the deck in hand
 
-                // Reset numDrawnCards if it reaches 2
-                if (numDrawnCards > 2)
+                // Check if the number of drawn cards that are going to be display one next to another is greater than 2. If it is reset it to 0. This will change the vector position of the next card displayed as the calculation uses the oneTwoThree variable
+                if (oneTwoThree > 2)
                 {
-                    numDrawnCards = 0;
+                    oneTwoThree = 0;
                 }
 
-                // Set the vection position for each card drawn from han
-                Vector2 drawnCardPos = {static_cast<float>(handPosX) + 100 + (numDrawnCards * 20), static_cast<float>(handPosY)};
+                // Set the vector position for each card drawn from hand
+                Vector2 drawnCardPos = {static_cast<float>(handPosX) + 100 + (oneTwoThree * 20), static_cast<float>(handPosY)};
 
-                // Assign parameters to each card drawn
+                // Assign parameters to the card drawn
                 drawnCards[numDrawnCards].rank = rank;
                 drawnCards[numDrawnCards].suit = cardsInHand[righHand - 1].suit;
                 drawnCards[numDrawnCards].position = drawnCardPos;
+
+                // Increment variables
                 numDrawnCards++;
+                oneTwoThree++;
             }
         }
 
@@ -239,14 +326,17 @@ int main()
 
         for (int row = 0; row < 7; row++)
         {
-            float posX = 150.f + row * cardSpacingX;
-            float posY = 170.f + cardSpacingY;
+            float posX{150.f + row * cardSpacingX};
+            float posY{170.f + cardSpacingY};
 
             for (int col = 0; col <= row; col++)
             {
                 int suit = cardsOnTheBoard[row][col].suit;
                 int rank = cardsOnTheBoard[row][col].rank;
                 bool visible = cardsOnTheBoard[row][col].visible;
+                bool isSelected = cardsOnTheBoard[row][col].selected;
+                Card thisCard = cardsOnTheBoard[row][col];
+
                 // Vector posision of the current card
                 posY += cardSpacingY;
                 Vector2 cardPos{posX, posY};
@@ -260,12 +350,19 @@ int main()
                 // If the card is facing up
                 else
                 {
-                    Rectangle thisCard;
-                    switch (suit) // If the suit is
+                    Rectangle thisCardRec;
+
+                    switch (suit) // If the suit is:
                     {
                     case 0: // Clubs
-                        thisCard = MakeThisRectangle(clubsRec[rank - 1].width, clubsRec[rank - 1].height, cardPos);
-                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        thisCardRec = MakeThisRectangle(clubsRec[rank - 1].width, clubsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                            printf("Card was clicked!\n");
+                            SelectCard(cardsOnTheBoard, suit, rank, &isSelected, row, col, &currentlySelectedCard);
+                        }
+
+                        if (isSelected)
                         {
                             DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, LIGHTBLUE);
                         }
@@ -276,8 +373,13 @@ int main()
                         break;
 
                     case 1: // Diamonds
-                        thisCard = MakeThisRectangle(diamondsRec[rank - 1].width, diamondsRec[rank - 1].height, cardPos);
-                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        thisCardRec = MakeThisRectangle(diamondsRec[rank - 1].width, diamondsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                            cardsOnTheBoard[row][col].selected = !cardsOnTheBoard[row][col].selected; // Toggle selection state
+                        }
+
+                        if (isSelected)
                         {
                             DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, LIGHTBLUE);
                         }
@@ -288,8 +390,13 @@ int main()
                         break;
 
                     case 2: // Hearts
-                        thisCard = MakeThisRectangle(heartsRec[rank - 1].width, heartsRec[rank - 1].height, cardPos);
-                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        thisCardRec = MakeThisRectangle(heartsRec[rank - 1].width, heartsRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                            cardsOnTheBoard[row][col].selected = !cardsOnTheBoard[row][col].selected; // Toggle selection state
+                        }
+
+                        if (isSelected)
                         {
                             DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, LIGHTBLUE);
                         }
@@ -300,8 +407,13 @@ int main()
                         break;
 
                     default: // Spades
-                        thisCard = MakeThisRectangle(spadesRec[rank - 1].width, spadesRec[rank - 1].height, cardPos);
-                        if (CheckCollisionPointRec(mousePointer, thisCard))
+                        thisCardRec = MakeThisRectangle(spadesRec[rank - 1].width, spadesRec[rank - 1].height, cardPos);
+                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                            cardsOnTheBoard[row][col].selected = !cardsOnTheBoard[row][col].selected; // Toggle selection state
+                        }
+
+                        if (isSelected)
                         {
                             DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, LIGHTBLUE);
                         }
@@ -325,23 +437,28 @@ int main()
 
             switch (drawnCards[i].suit)
             {
-                case 0:
-                    DrawTextureRec(clubsTex, clubsRec[rank - 1], drawnCardPos, WHITE);
-                    break;
-                case 1:
-                    DrawTextureRec(diamondsTex, diamondsRec[rank - 1], drawnCardPos, WHITE);
-                    break;
-                case 2:
-                    DrawTextureRec(heartsTex, heartsRec[rank - 1], drawnCardPos, WHITE);
-                    break;
-                default:
-                    DrawTextureRec(spadesTex, spadesRec[rank - 1], drawnCardPos, WHITE);
-                    break;
+            case 0:
+                DrawTextureRec(clubsTex, clubsRec[rank - 1], drawnCardPos, WHITE);
+                break;
+            case 1:
+                DrawTextureRec(diamondsTex, diamondsRec[rank - 1], drawnCardPos, WHITE);
+                break;
+            case 2:
+                DrawTextureRec(heartsTex, heartsRec[rank - 1], drawnCardPos, WHITE);
+                break;
+            default:
+                DrawTextureRec(spadesTex, spadesRec[rank - 1], drawnCardPos, WHITE);
+                break;
             }
         }
+        /*
+        if (cardState == CARD_SELECTED)
+        {
+            cardState = CARD_CONFIRMED;
+        }
+        */
 
         EndDrawing();
-
     }
 
     // Unload Textures from VRAM
