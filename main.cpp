@@ -10,10 +10,11 @@
 // Define Card as it will show on the board
 struct Card
 {
-    int rank;      // from 1 (Ace) tp 13 (King)
+    int rank;      // from 1 (Ace) tp 13 (King), 0 - empty card
     int suit;      // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
     bool visible;  // face-up or face-down
     bool selected; // tells if the card is or is not selected by the user
+    bool isEmpty;
 };
 
 // Define max numebr of cards that can be drawn from hand
@@ -35,7 +36,6 @@ typedef enum
 {
     CARD_NONE,     // No card selected
     CARD_SELECTED, // A card has been selected
-    CARD_CONFIRMED // It's been one frame since the card was selected and no deleselection occurred
 } CardState;
 
 CardState cardState;
@@ -61,22 +61,27 @@ Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
     return thisCardRec;
 }
 
-void SelectCard(Card cardsOnTheBoard[][7], int suit, int rank, int row, int col, Card **currentlySelectedCard)
+// Function that handles cards selection
+void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard)
 {
+    // Variables that stores the [row] and [col] of the previously selected card
+    static int rowOld{-1};
+    static int colOld{-1};
 
-    printf("Current card state: %d\n", cardState);
-
-    if (cardState == CARD_NONE || cardState == CARD_CONFIRMED)
+    if (cardState == CARD_NONE)
     {
         printf("Transitioning to CARD_SELECTED...\n");
         cardState = CARD_SELECTED;
         // Select this card
         cardsOnTheBoard[row][col].selected = true;
         *currentlySelectedCard = &cardsOnTheBoard[row][col];
+
+        // Update the row and col of the previously selected card
+        rowOld = row;
+        colOld = col;
     }
     else if (cardState == CARD_SELECTED)
     {
-
         if (*currentlySelectedCard == &cardsOnTheBoard[row][col])
         {
             printf("Deselecting the card...\n");
@@ -84,15 +89,42 @@ void SelectCard(Card cardsOnTheBoard[][7], int suit, int rank, int row, int col,
             // Deselect this card if it's already selected
             cardsOnTheBoard[row][col].selected = false;
             cardState = CARD_NONE;
-            *currentlySelectedCard = NULL; // Reset the pointe
+            *currentlySelectedCard = NULL; // Reset the pointer
         }
         // If this is the second selected card
         else
         {
-            if ((((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1)
+            // Code for a valid move
+            bool validMove = (((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1;
+
+            // If a valid move is detected
+            if (validMove)
             {
                 printf("Valid move detected!\n");
-                // If the suit of the previous card has oposite colour and if the rank is -1 of the current card - Move the previous card on to this card
+                // Make a copy of the previously selected card and place it below the current card
+                int newCol = 0;
+                while (!cardsOnTheBoard[row][newCol].isEmpty && newCol < 6)
+                {
+                    newCol++;
+                }
+
+                printf("Moving from [%d][%d] to [%d][%d]\n", rowOld, colOld, row, newCol); 
+                
+                printf("Before the move the card in [%d][%d] is now rank: %d, suit: %d, visible: %d, selected: %d, isEmpty: %d\n", row, newCol, cardsOnTheBoard[row][newCol].rank, cardsOnTheBoard[row][newCol].suit, cardsOnTheBoard[row][newCol].visible, cardsOnTheBoard[row][newCol].selected, cardsOnTheBoard[row][newCol].isEmpty); 
+
+                if (newCol <= 6) // Ensure we are not out of bounds
+                { 
+                    cardsOnTheBoard[row][newCol] = cardsOnTheBoard[rowOld][colOld];
+                    cardsOnTheBoard[row][newCol].isEmpty = false; // This slot is now occupied
+
+                    // Mark the old card spot as empty
+                    cardsOnTheBoard[rowOld][colOld].isEmpty = true; 
+                    // Flip the card that was above that card
+                    cardsOnTheBoard[rowOld][colOld-1].visible = true;
+                }
+
+                printf("Moved card to position: [%d][%d] with attributes - rank: %d, suit: %d, visible: %d, selected: %d, isEmpty: %d\n", row, newCol, cardsOnTheBoard[row][newCol].rank, cardsOnTheBoard[row][newCol].suit, cardsOnTheBoard[row][newCol].visible, cardsOnTheBoard[row][newCol].selected, cardsOnTheBoard[row][newCol].isEmpty);
+
             }
 
             // Deselect the previously selected card, if any was selected
@@ -106,7 +138,36 @@ void SelectCard(Card cardsOnTheBoard[][7], int suit, int rank, int row, int col,
             // Select the current card and update the pointer
             cardsOnTheBoard[row][col].selected = true;
             *currentlySelectedCard = &cardsOnTheBoard[row][col];
+
+            // Update the row and col of the previously selected card
+            rowOld = row;
+            colOld = col;
         }
+    }
+}
+
+// Function that draws cards on the board and handles interactions with them
+void DrawAndInteractWithTheCard(Texture2D suitTex, Rectangle *suitRec, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard)
+{
+    // Do nothing with empty cards
+    if (card.isEmpty) return;
+
+    Rectangle thisCardRec = MakeThisRectangle(suitRec[card.rank - 1].width, suitRec[card.rank - 1].height, cardPos);
+    // If the card is clicked
+    if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        // Select the card | Deselect other card and select this one
+        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard);
+    }
+    if (card.selected)
+    {
+        // LIGHTBLUE - colour tint for a selected card
+        DrawTextureRec(suitTex, suitRec[card.rank - 1], cardPos, LIGHTBLUE);
+    }
+    else
+    {
+        // If a card is not selected, draw it with no colour tint
+        DrawTextureRec(suitTex, suitRec[card.rank - 1], cardPos, WHITE);
     }
 }
 
@@ -127,6 +188,7 @@ int main()
         deck[i].suit = i / 13;
         deck[i].visible = false;  // Initially, all cards are face-down
         deck[i].selected = false; // Initially, all cards are unselected
+        deck[i].isEmpty = false;  // This will be assigned later
     }
 
     // Shuffle the deck using the Fisher-Yates shuffle algorithm
@@ -138,16 +200,35 @@ int main()
     }
 
     // Two-dimensional array to store the layout of the cards on the board
-    Card cardsOnTheBoard[30][7];
+    Card cardsOnTheBoard[7][20];
 
     int cardIndex{};
     // Copy the shuffled deck into the two dimentional array
+    /*
     for (int i = 0; i < 7; i++)
     {
         for (int j = 0; j <= i; j++)
         {
             cardsOnTheBoard[i][j] = deck[cardIndex];
             cardIndex++;
+        }
+    }
+    */
+
+    for (int i = 0; i < 7; i++)
+    {
+        for (int j = 0; j < 7; j++)
+        {
+            if (j <= i)
+            {
+                cardsOnTheBoard[i][j] = deck[cardIndex];
+                cardsOnTheBoard[i][j].isEmpty = false;
+                cardIndex++;
+            }
+            else
+            {
+                cardsOnTheBoard[i][j].isEmpty = true;
+            }
         }
     }
 
@@ -317,7 +398,6 @@ int main()
                 int suit = cardsOnTheBoard[row][col].suit;
                 int rank = cardsOnTheBoard[row][col].rank;
                 bool visible = cardsOnTheBoard[row][col].visible;
-                bool isSelected = cardsOnTheBoard[row][col].selected;
 
                 // Vector posision of the current card
                 posY += cardSpacingY;
@@ -332,91 +412,22 @@ int main()
                 // If the card is facing up
                 else
                 {
-                    Rectangle thisCardRec;
-
                     switch (suit) // If the suit is:
                     {
                     case 0: // Clubs
-                        thisCardRec = MakeThisRectangle(clubsRec[rank - 1].width, clubsRec[rank - 1].height, cardPos);
-                        // If the card is clicked
-                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                        {
-                            // Select the card | Deselect other card and select this one
-                            SelectCard(cardsOnTheBoard, suit, rank, row, col, &currentlySelectedCard);
-                        }
-                        if (isSelected)
-                        {
-                            // LIGHTBLUE - colour tint for a selected card
-                            DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, LIGHTBLUE);
-                        }
-                        else
-                        {
-                            // If a card is not selected, draw it with no colour tint
-                            DrawTextureRec(clubsTex, clubsRec[rank - 1], cardPos, WHITE);
-                        }
+                        DrawAndInteractWithTheCard(clubsTex, clubsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
                         break;
 
                     case 1: // Diamonds
-                        thisCardRec = MakeThisRectangle(diamondsRec[rank - 1].width, diamondsRec[rank - 1].height, cardPos);
-                        // If the card is clicked
-                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                        {
-                            // Select the card | Deselect other card and select this one
-                            SelectCard(cardsOnTheBoard, suit, rank, row, col, &currentlySelectedCard);
-                        }
-
-                        if (isSelected)
-                        {
-                            // LIGHTBLUE - colour tint for a selected card
-                            DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, LIGHTBLUE);
-                        }
-                        else
-                        {
-                            // If a card is not selected, draw it with no colour tint
-                            DrawTextureRec(diamondsTex, diamondsRec[rank - 1], cardPos, WHITE);
-                        }
+                        DrawAndInteractWithTheCard(diamondsTex, diamondsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
                         break;
 
                     case 2: // Hearts
-                        thisCardRec = MakeThisRectangle(heartsRec[rank - 1].width, heartsRec[rank - 1].height, cardPos);
-                        // If the card is clicked
-                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                        {
-                            // Select the card | Deselect other card and select this one
-                            SelectCard(cardsOnTheBoard, suit, rank, row, col, &currentlySelectedCard);
-                        }
-
-                        if (isSelected)
-                        {
-                            // LIGHTBLUE - colour tint for a selected card
-                            DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, LIGHTBLUE);
-                        }
-                        else
-                        {
-                            // If a card is not selected, draw it with no colour tint
-                            DrawTextureRec(heartsTex, heartsRec[rank - 1], cardPos, WHITE);
-                        }
+                        DrawAndInteractWithTheCard(heartsTex, heartsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
                         break;
 
                     default: // Spades
-                        thisCardRec = MakeThisRectangle(spadesRec[rank - 1].width, spadesRec[rank - 1].height, cardPos);
-                        // If the card is clicked
-                        if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                        {
-                            // Select the card | Deselect other card and select this one
-                            SelectCard(cardsOnTheBoard, suit, rank, row, col, &currentlySelectedCard);
-                        }
-
-                        if (isSelected)
-                        {
-                            // LIGHTBLUE - colour tint for a selected card
-                            DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, LIGHTBLUE);
-                        }
-                        else
-                        {
-                            // If a card is not selected, draw it with no colour tint
-                            DrawTextureRec(spadesTex, spadesRec[rank - 1], cardPos, WHITE);
-                        }
+                        DrawAndInteractWithTheCard(spadesTex, spadesRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
                         break;
                     }
                 }
@@ -447,12 +458,6 @@ int main()
                 break;
             }
         }
-        /*
-        if (cardState == CARD_SELECTED)
-        {
-            cardState = CARD_CONFIRMED;
-        }
-        */
 
         EndDrawing();
     }
