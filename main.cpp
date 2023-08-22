@@ -61,51 +61,71 @@ Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
     return thisCardRec;
 }
 
+void DrawFinalFour(Texture2D clubsTex, Texture2D diamondsTex, Texture2D heartsTex, Texture2D spadesTex, Rectangle *clubsRec, Rectangle *diamondsRec, Rectangle *heartsRec, Rectangle *spadesRec, int rank, int suit)
+{
+    Vector2 finalPos;
+    finalPos.y = 22;
+    switch (suit)
+    {
+    case 0:
+        finalPos.x = 450;
+        DrawTextureRec(clubsTex, clubsRec[rank - 1], finalPos, WHITE);
+        break;
+
+    case 1:
+        finalPos.x = 550;
+        DrawTextureRec(diamondsTex, diamondsRec[rank - 1], finalPos, WHITE);
+        break;
+
+    case 2:
+        finalPos.x = 650;
+        DrawTextureRec(heartsTex, heartsRec[rank - 1], finalPos, WHITE);
+        break;
+    
+    default:
+        finalPos.x = 750;
+        DrawTextureRec(spadesTex, spadesRec[rank - 1], finalPos, WHITE);
+        break;
+    }
+
+    
+}
+
 // Function that handles cards selection
-void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard)
+void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, int finalFour[4][14], Texture2D suitTex, Rectangle *suitRec)
 {
     // Variables that stores the [row] and [col] of the previously selected card
-    static int rowOld{-1};
-    static int colOld{-1};
-
-    // The four final decks of suits (from Aces to Kings). Are empty at the beginning of the game
-    /* The finalFour[3][13] will track the cards put at the Ace spots. The number represent 4 suits and 13 ranks. The number for ranks is 14 however. It's becasue the rank property in the Card struct goes from 1 to 13. And what I will use here it's the extra 0 in order to place an Ace, so that the Ace can be compared to something already.*/
-    int finalFour[4][14];
-    int maxSuitDeck{13};
-
-    // Setting all the values in the finalFour array to 0 (no cards) excet the first four cards for each rank (rank 0 below Ace, see the explanation above)
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 14; j++)
-        {
-            if (j == 0)
-            {
-                finalFour[i][j] = 1;
-            }
-            else
-            {
-                finalFour[i][j] = 0;
-            }
-        }
-    }
+    static int oldRow{-1};
+    static int oldCol{-1};
 
     if (cardState == CARD_NONE)
     {
         // Check if the card below this card is empty and is the card in the finalFour array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
-        if (cardsOnTheBoard[row][col+1].isEmpty && finalFour[suit][rank-1] == 1)
+        if (cardsOnTheBoard[row][col + 1].isEmpty && finalFour[suit][rank - 1] == 1)
         {
             // Move this card to the Ace spot
             printf("Moving the card on the ACE PILE...\n");
+            // Assign 1 to that card in the finalFour array, so that the next card in the rank can be compared
+            finalFour[suit][rank] = 1;
+            // Flip the card that was above that card
+            cardsOnTheBoard[row][col-1].visible = true;
+            // Empty this card spot
+            cardsOnTheBoard[row][col].isEmpty = true;
+            // Draw the cards on the Aces - TODO (external function)
+            // DrawFinalFour(suitTex, suitRec, rank, suit);
         }
-        printf("Transitioning to CARD_SELECTED...\n");
-        cardState = CARD_SELECTED;
-        // Select this card
-        cardsOnTheBoard[row][col].selected = true;
-        *currentlySelectedCard = &cardsOnTheBoard[row][col];
+        else // Else - select the card
+        {
+            printf("Transitioning to CARD_SELECTED...\n");
+            cardState = CARD_SELECTED;
+            // Select this card
+            cardsOnTheBoard[row][col].selected = true;
+            *currentlySelectedCard = &cardsOnTheBoard[row][col];
 
-        // Update the row and col of the previously selected card
-        rowOld = row;
-        colOld = col;
+            // Update the row and col of the previously selected card
+            oldRow = row;
+            oldCol = col;
+        }
     }
     else if (cardState == CARD_SELECTED)
     {
@@ -122,7 +142,7 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
         else
         {
             // Code for a valid move
-            bool validMove = (((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1;
+            bool validMove = ((((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1) || ((*currentlySelectedCard)->rank == 13 && cardsOnTheBoard[row][col].isEmpty && col == 0);
 
             // If a valid move is detected
             if (validMove)
@@ -135,19 +155,17 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
                     newCol++;
                 }
 
-                printf("Moving from [%d][%d] to [%d][%d]\n", rowOld, colOld, row, newCol);
-
-                printf("Before the move the card in [%d][%d] is now rank: %d, suit: %d, visible: %d, selected: %d, isEmpty: %d\n", row, newCol, cardsOnTheBoard[row][newCol].rank, cardsOnTheBoard[row][newCol].suit, cardsOnTheBoard[row][newCol].visible, cardsOnTheBoard[row][newCol].selected, cardsOnTheBoard[row][newCol].isEmpty);
+                printf("Moving from [%d][%d] to [%d][%d]\n", oldRow, oldCol, row, newCol);
 
                 if (newCol <= 20) // Ensure we are not out of bounds
                 {
-                    cardsOnTheBoard[row][newCol] = cardsOnTheBoard[rowOld][colOld];
+                    cardsOnTheBoard[row][newCol] = cardsOnTheBoard[oldRow][oldCol];
                     cardsOnTheBoard[row][newCol].isEmpty = false; // This slot is now occupied
 
                     // Mark the old card spot as empty
-                    cardsOnTheBoard[rowOld][colOld].isEmpty = true;
+                    cardsOnTheBoard[oldRow][oldCol].isEmpty = true;
                     // Flip the card that was above that card
-                    cardsOnTheBoard[rowOld][colOld - 1].visible = true;
+                    cardsOnTheBoard[oldRow][oldCol - 1].visible = true;
                 }
 
                 printf("Moved card to position: [%d][%d] with attributes - rank: %d, suit: %d, visible: %d, selected: %d, isEmpty: %d\n", row, newCol, cardsOnTheBoard[row][newCol].rank, cardsOnTheBoard[row][newCol].suit, cardsOnTheBoard[row][newCol].visible, cardsOnTheBoard[row][newCol].selected, cardsOnTheBoard[row][newCol].isEmpty);
@@ -161,19 +179,35 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
                 (*currentlySelectedCard)->selected = false;
             }
 
-            // Select the current card and update the pointer
-            cardsOnTheBoard[row][col].selected = true;
-            *currentlySelectedCard = &cardsOnTheBoard[row][col];
+            // Check if the card below this card is empty and is the card in the finalFour array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
+            if (cardsOnTheBoard[row][col + 1].isEmpty && finalFour[suit][rank - 1] == 1)
+            {
+                // Move this card to the Ace spot
+                printf("Moving the card on the ACE PILE...\n");
 
-            // Update the row and col of the previously selected card
-            rowOld = row;
-            colOld = col;
+                // Assign 1 to that card in the finalFour array, so that the next card in the rank can be compared
+                finalFour[suit][rank] = 1;
+                // Flip the card that was above that card
+                cardsOnTheBoard[row][col-1].visible = true;
+                // Empty this card spot
+                cardsOnTheBoard[row][col].isEmpty = true;
+            }
+            else
+            {
+                // Select the current card and update the pointer
+                cardsOnTheBoard[row][col].selected = true;
+                *currentlySelectedCard = &cardsOnTheBoard[row][col];
+
+                // Update the row and col of the previously selected card
+                oldRow = row;
+                oldCol = col;
+            }
         }
     }
 }
 
 // Function that draws cards on the board and handles interactions with them
-void DrawAndInteractWithCards(Texture2D suitTex, Rectangle *suitRec, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard)
+void DrawAndInteractWithCards(Texture2D suitTex, Rectangle *suitRec, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, int finalFour[4][14])
 {
     // Do nothing with empty cards
     if (card.isEmpty)
@@ -184,7 +218,7 @@ void DrawAndInteractWithCards(Texture2D suitTex, Rectangle *suitRec, Card card, 
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         // Select the card | Deselect other card and select this one
-        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard);
+        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, finalFour, suitTex, suitRec);
     }
     if (card.selected)
     {
@@ -266,6 +300,27 @@ int main()
     for (int i = 0; i < 7; i++)
     {
         cardsOnTheBoard[i][i].visible = true;
+    }
+
+    // The four final decks of suits (from Aces to Kings). Are empty at the beginning of the game
+    /* The finalFour[3][13] will track the cards put at the Ace spots. The number represent 4 suits and 13 ranks. The number for ranks is 14 however. It's becasue the rank property in the Card struct goes from 1 to 13. And what I will use here it's the extra 0 in order to place an Ace, so that the Ace can be compared to something already.*/
+    int finalFour[4][14];
+    int maxSuitDeck{13};
+
+    // Setting all the values in the finalFour array to 0 (no cards) excet the first four cards for each rank (rank 0 below Ace, see the explanation above)
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 14; j++)
+        {
+            if (j == 0)
+            {
+                finalFour[i][j] = 1;
+            }
+            else
+            {
+                finalFour[i][j] = 0;
+            }
+        }
     }
 
     // ---- LOAD TEXTURES ----
@@ -399,7 +454,7 @@ int main()
             DrawRectangle(finalPos.x + i, finalPos.y, backRec.width, backRec.height, DARKGREEN);
             DrawText("A", finalPos.x + letterPaddingXY + i, finalPos.y + letterPaddingXY, 50, DARKERGREEN);
         }
-        
+
         // Draw the cards on the board (the main solitaire layout)
         for (int row = 0; row < 7; row++)
         {
@@ -428,19 +483,19 @@ int main()
                     switch (suit) // If the suit is:
                     {
                     case 0: // Clubs
-                        DrawAndInteractWithCards(clubsTex, clubsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
+                        DrawAndInteractWithCards(clubsTex, clubsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
                         break;
 
                     case 1: // Diamonds
-                        DrawAndInteractWithCards(diamondsTex, diamondsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
+                        DrawAndInteractWithCards(diamondsTex, diamondsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
                         break;
 
                     case 2: // Hearts
-                        DrawAndInteractWithCards(heartsTex, heartsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
+                        DrawAndInteractWithCards(heartsTex, heartsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
                         break;
 
                     default: // Spades
-                        DrawAndInteractWithCards(spadesTex, spadesRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard);
+                        DrawAndInteractWithCards(spadesTex, spadesRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
                         break;
                     }
                 }
