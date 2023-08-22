@@ -204,20 +204,9 @@ int main()
 
     int cardIndex{};
     // Copy the shuffled deck into the two dimentional array
-    /*
     for (int i = 0; i < 7; i++)
     {
-        for (int j = 0; j <= i; j++)
-        {
-            cardsOnTheBoard[i][j] = deck[cardIndex];
-            cardIndex++;
-        }
-    }
-    */
-
-    for (int i = 0; i < 7; i++)
-    {
-        for (int j = 0; j < 7; j++)
+        for (int j = 0; j < 20; j++)
         {
             if (j <= i)
             {
@@ -393,18 +382,19 @@ int main()
             float posX{150.f + row * cardSpacingX};
             float posY{170.f + cardSpacingY};
 
-            for (int col = 0; col <= row; col++)
+            for (int col = 0; col <= 20; col++)
             {
                 int suit = cardsOnTheBoard[row][col].suit;
                 int rank = cardsOnTheBoard[row][col].rank;
                 bool visible = cardsOnTheBoard[row][col].visible;
+                bool isEmpty = cardsOnTheBoard[row][col].isEmpty;
 
                 // Vector posision of the current card
                 posY += cardSpacingY;
                 Vector2 cardPos{posX, posY};
 
                 // If the card is facing down
-                if (!visible)
+                if (!visible && !isEmpty)
                 {
                     // Draw the back of the card
                     DrawTextureRec(backTex, backRec, cardPos, WHITE);
