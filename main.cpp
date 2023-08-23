@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include <algorithm>
+#include <string>
 
 // Define custom colors
 #define LIGHTBLUE \
@@ -40,6 +41,16 @@ typedef enum
 
 CardState cardState;
 
+// Struct of the paramaters needed to load the cards graphics from the files - textures and rectangles
+struct CardGraphics
+{
+    Texture2D texture;
+    Rectangle rec[13];
+};
+
+// Array of 4 CardGraphics types, one for each suit
+CardGraphics cardGraphics[4];
+
 // Function that sets properties of each rectangle that I need to draw the card front textures with
 void SetRectangleProperties(Rectangle &rect, int index, int texWidth, int texHeight, int rows, int cols)
 {
@@ -61,38 +72,21 @@ Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
     return thisCardRec;
 }
 
-void DrawFinalFour(Texture2D clubsTex, Texture2D diamondsTex, Texture2D heartsTex, Texture2D spadesTex, Rectangle *clubsRec, Rectangle *diamondsRec, Rectangle *heartsRec, Rectangle *spadesRec, int rank, int suit)
+void DrawFoundation(CardGraphics cardGfx, int rank, int suit, Vector2 cardPos)
 {
-    Vector2 finalPos;
-    finalPos.y = 22;
-    switch (suit)
-    {
-    case 0:
-        finalPos.x = 450;
-        DrawTextureRec(clubsTex, clubsRec[rank - 1], finalPos, WHITE);
-        break;
+    Vector2 foundationPos;
+    foundationPos.x = 450;
+    foundationPos.y = 22;
 
-    case 1:
-        finalPos.x = 550;
-        DrawTextureRec(diamondsTex, diamondsRec[rank - 1], finalPos, WHITE);
-        break;
+    // Spades -             Hearts -            Clubs -             Diamonds
+    // foundationPos.x = 450; -  foundationPos.x = 550; - foundationPos.x = 650; - foundationPos.x = 750;
 
-    case 2:
-        finalPos.x = 650;
-        DrawTextureRec(heartsTex, heartsRec[rank - 1], finalPos, WHITE);
-        break;
-    
-    default:
-        finalPos.x = 750;
-        DrawTextureRec(spadesTex, spadesRec[rank - 1], finalPos, WHITE);
-        break;
-    }
+    DrawTextureRec(cardGfx.texture, cardGfx.rec[rank - 1], foundationPos, WHITE);
 
-    
 }
 
 // Function that handles cards selection
-void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, int finalFour[4][14], Texture2D suitTex, Rectangle *suitRec)
+void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, int foundationPiles[4][14], CardGraphics cardGfx, Vector2 cardPos)
 {
     // Variables that stores the [row] and [col] of the previously selected card
     static int oldRow{-1};
@@ -100,19 +94,19 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
 
     if (cardState == CARD_NONE)
     {
-        // Check if the card below this card is empty and is the card in the finalFour array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
-        if (cardsOnTheBoard[row][col + 1].isEmpty && finalFour[suit][rank - 1] == 1)
+        // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
+        if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1] == 1)
         {
             // Move this card to the Ace spot
             printf("Moving the card on the ACE PILE...\n");
-            // Assign 1 to that card in the finalFour array, so that the next card in the rank can be compared
-            finalFour[suit][rank] = 1;
+            // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
+            foundationPiles[suit][rank] = 1;
             // Flip the card that was above that card
-            cardsOnTheBoard[row][col-1].visible = true;
+            cardsOnTheBoard[row][col - 1].visible = true;
             // Empty this card spot
             cardsOnTheBoard[row][col].isEmpty = true;
-            // Draw the cards on the Aces - TODO (external function)
-            // DrawFinalFour(suitTex, suitRec, rank, suit);
+            // Send the card to the Foundation
+            DrawFoundation(cardGfx, rank, suit, cardPos);
         }
         else // Else - select the card
         {
@@ -179,18 +173,20 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
                 (*currentlySelectedCard)->selected = false;
             }
 
-            // Check if the card below this card is empty and is the card in the finalFour array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
-            if (cardsOnTheBoard[row][col + 1].isEmpty && finalFour[suit][rank - 1] == 1)
+            // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
+            if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1] == 1)
             {
                 // Move this card to the Ace spot
                 printf("Moving the card on the ACE PILE...\n");
 
-                // Assign 1 to that card in the finalFour array, so that the next card in the rank can be compared
-                finalFour[suit][rank] = 1;
+                // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
+                foundationPiles[suit][rank] = 1;
                 // Flip the card that was above that card
-                cardsOnTheBoard[row][col-1].visible = true;
+                cardsOnTheBoard[row][col - 1].visible = true;
                 // Empty this card spot
                 cardsOnTheBoard[row][col].isEmpty = true;
+                // Send the card to the Foundation
+                DrawFoundation(cardGfx, rank, suit, cardPos);
             }
             else
             {
@@ -207,28 +203,28 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
 }
 
 // Function that draws cards on the board and handles interactions with them
-void DrawAndInteractWithCards(Texture2D suitTex, Rectangle *suitRec, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, int finalFour[4][14])
+void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, int foundationPiles[4][14])
 {
     // Do nothing with empty cards
     if (card.isEmpty)
         return;
 
-    Rectangle thisCardRec = MakeThisRectangle(suitRec[card.rank - 1].width, suitRec[card.rank - 1].height, cardPos);
+    Rectangle thisCardRec = MakeThisRectangle(cardGfx.rec[card.rank - 1].width, cardGfx.rec[card.rank - 1].height, cardPos);
     // If the card is clicked
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         // Select the card | Deselect other card and select this one
-        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, finalFour, suitTex, suitRec);
+        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, cardGfx, cardPos);
     }
     if (card.selected)
     {
         // LIGHTBLUE - colour tint for a selected card
-        DrawTextureRec(suitTex, suitRec[card.rank - 1], cardPos, LIGHTBLUE);
+        DrawTextureRec(cardGfx.texture, cardGfx.rec[card.rank - 1], cardPos, LIGHTBLUE);
     }
     else
     {
         // If a card is not selected, draw it with no colour tint
-        DrawTextureRec(suitTex, suitRec[card.rank - 1], cardPos, WHITE);
+        DrawTextureRec(cardGfx.texture, cardGfx.rec[card.rank - 1], cardPos, WHITE);
     }
 }
 
@@ -303,22 +299,22 @@ int main()
     }
 
     // The four final decks of suits (from Aces to Kings). Are empty at the beginning of the game
-    /* The finalFour[3][13] will track the cards put at the Ace spots. The number represent 4 suits and 13 ranks. The number for ranks is 14 however. It's becasue the rank property in the Card struct goes from 1 to 13. And what I will use here it's the extra 0 in order to place an Ace, so that the Ace can be compared to something already.*/
-    int finalFour[4][14];
+    /* The foundationPiles[4][14] will track the cards put at the Ace spots. The number represent 4 suits and 13 ranks. The number for ranks is 14 however. It's becasue the rank property in the Card struct goes from 1 to 13. And what I will use here it's the extra 0 in order to place an Ace.*/
+    int foundationPiles[4][14];
     int maxSuitDeck{13};
 
-    // Setting all the values in the finalFour array to 0 (no cards) excet the first four cards for each rank (rank 0 below Ace, see the explanation above)
+    // Setting all the values in the foundationPiles array to 0 (no cards) excet the first four cards for each rank (rank 0 below Ace, see the explanation above)
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 14; j++)
         {
             if (j == 0)
             {
-                finalFour[i][j] = 1;
+                foundationPiles[i][j] = 1;
             }
             else
             {
-                finalFour[i][j] = 0;
+                foundationPiles[i][j] = 0;
             }
         }
     }
@@ -327,28 +323,24 @@ int main()
 
     // Load Front textures
 
-    // Loading a texture sprite for each suit
-    Texture2D clubsTex = LoadTexture("images/cards/Clubs-88x124.png");
-    Texture2D diamondsTex = LoadTexture("images/cards/Diamonds-88x124.png");
-    Texture2D heartsTex = LoadTexture("images/cards/Hearts-88x124.png");
-    Texture2D spadesTex = LoadTexture("images/cards/Spades-88x124.png");
-
     // Number of the rows and columns in each sprite sheet, as it happens is the same for all
     int colsNum{5};
     int rowsNum{3};
 
-    Rectangle clubsRec[13];
-    Rectangle diamondsRec[13];
-    Rectangle heartsRec[13];
-    Rectangle spadesRec[13];
+    // String variables to use them inside the relative path in the LoadTexture() function
+    const std::string suits[4] = {"Clubs", "Diamonds", "Hearts", "Spades"};
 
-    // Set the Rectangle values for each rectangle in all the 4 arrays by calling a fuction
-    for (int i = 0; i < 13; i++)
+    // Read the graphics for all the 4 suits from the all the 4 graphics files at once with a loop
+    for (int i = 0; i < 4; i++)
     {
-        SetRectangleProperties(clubsRec[i], i, clubsTex.width, clubsTex.height, rowsNum, colsNum);
-        SetRectangleProperties(diamondsRec[i], i, diamondsTex.width, diamondsTex.height, rowsNum, colsNum);
-        SetRectangleProperties(heartsRec[i], i, heartsTex.width, heartsTex.height, rowsNum, colsNum);
-        SetRectangleProperties(spadesRec[i], i, spadesTex.width, spadesTex.height, rowsNum, colsNum);
+        // Load texture for each suit
+        cardGraphics[i].texture = LoadTexture(("images/cards/" + suits[i] + "-88x124.png").c_str());
+
+        for (int j = 0; j < 13; j++)
+        {
+            // Define a rectangle inside each of the 4 textures (each png has 13 graphics of fronts of the cards)
+            SetRectangleProperties(cardGraphics[i].rec[j], j, cardGraphics[i].texture.width, cardGraphics[i].texture.height, rowsNum, colsNum);
+        }
     }
 
     // Load Cards Back texture
@@ -478,26 +470,9 @@ int main()
                     DrawTextureRec(backTex, backRec, cardPos, WHITE);
                 }
                 // If the card is facing up
-                else
+                else if (visible && !isEmpty)
                 {
-                    switch (suit) // If the suit is:
-                    {
-                    case 0: // Clubs
-                        DrawAndInteractWithCards(clubsTex, clubsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
-                        break;
-
-                    case 1: // Diamonds
-                        DrawAndInteractWithCards(diamondsTex, diamondsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
-                        break;
-
-                    case 2: // Hearts
-                        DrawAndInteractWithCards(heartsTex, heartsRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
-                        break;
-
-                    default: // Spades
-                        DrawAndInteractWithCards(spadesTex, spadesRec, cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, finalFour);
-                        break;
-                    }
+                    DrawAndInteractWithCards(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles);
                 }
 
                 posY += 20; // Adjust the Y position for the cards in the same column
@@ -508,33 +483,20 @@ int main()
         for (int i = 0; i < numDrawnCards; i++)
         {
             int rank = drawnCards[i].rank;
+            int suit = drawnCards[i].suit;
             Vector2 drawnCardPos = drawnCards[i].position;
 
-            switch (drawnCards[i].suit)
-            {
-            case 0:
-                DrawTextureRec(clubsTex, clubsRec[rank - 1], drawnCardPos, WHITE);
-                break;
-            case 1:
-                DrawTextureRec(diamondsTex, diamondsRec[rank - 1], drawnCardPos, WHITE);
-                break;
-            case 2:
-                DrawTextureRec(heartsTex, heartsRec[rank - 1], drawnCardPos, WHITE);
-                break;
-            default:
-                DrawTextureRec(spadesTex, spadesRec[rank - 1], drawnCardPos, WHITE);
-                break;
-            }
+            DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, WHITE);
         }
 
         EndDrawing();
     }
 
     // Unload Textures from VRAM
-    UnloadTexture(clubsTex);
-    UnloadTexture(diamondsTex);
-    UnloadTexture(heartsTex);
-    UnloadTexture(spadesTex);
+    for (int i = 0; i < 4; i++)
+    {
+        UnloadTexture(cardGraphics[i].texture);
+    }
     UnloadTexture(backTex);
     UnloadTexture(deckTex);
 
