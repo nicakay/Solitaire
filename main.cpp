@@ -72,21 +72,13 @@ Rectangle MakeThisRectangle(int cardWidth, int cardHeight, Vector2 cardPos)
     return thisCardRec;
 }
 
-void DrawFoundation(CardGraphics cardGfx, int rank, int suit, Vector2 cardPos)
+void DrawFoundation(CardGraphics cardGfx, int rank, Vector2 cardPos)
 {
-    Vector2 foundationPos;
-    foundationPos.x = 450;
-    foundationPos.y = 22;
-
-    // Spades -             Hearts -            Clubs -             Diamonds
-    // foundationPos.x = 450; -  foundationPos.x = 550; - foundationPos.x = 650; - foundationPos.x = 750;
-
-    DrawTextureRec(cardGfx.texture, cardGfx.rec[rank - 1], foundationPos, WHITE);
-
+    DrawTextureRec(cardGfx.texture, cardGfx.rec[rank - 1], cardPos, WHITE);
 }
 
 // Function that handles cards selection
-void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, int foundationPiles[4][14], CardGraphics cardGfx, Vector2 cardPos)
+void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14], CardGraphics cardGfx, Vector2 cardPos)
 {
     // Variables that stores the [row] and [col] of the previously selected card
     static int oldRow{-1};
@@ -95,18 +87,18 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
     if (cardState == CARD_NONE)
     {
         // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
-        if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1] == 1)
+        if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1])
         {
             // Move this card to the Ace spot
             printf("Moving the card on the ACE PILE...\n");
-            // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
-            foundationPiles[suit][rank] = 1;
+            // Assign true to that card in the foundationPiles array, so that the next card in the rank can be compared
+            foundationPiles[suit][rank] = true;
             // Flip the card that was above that card
             cardsOnTheBoard[row][col - 1].visible = true;
+            // Copy the current card to the Foundation
+            foundation[suit][rank] = cardsOnTheBoard[row][col];
             // Empty this card spot
             cardsOnTheBoard[row][col].isEmpty = true;
-            // Send the card to the Foundation
-            DrawFoundation(cardGfx, rank, suit, cardPos);
         }
         else // Else - select the card
         {
@@ -174,19 +166,19 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
             }
 
             // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
-            if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1] == 1)
+            if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1])
             {
                 // Move this card to the Ace spot
                 printf("Moving the card on the ACE PILE...\n");
 
                 // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
-                foundationPiles[suit][rank] = 1;
+                foundationPiles[suit][rank] = true;
                 // Flip the card that was above that card
                 cardsOnTheBoard[row][col - 1].visible = true;
+                // Copy the current card to the Foundation
+                foundation[suit][rank] = cardsOnTheBoard[row][col];
                 // Empty this card spot
                 cardsOnTheBoard[row][col].isEmpty = true;
-                // Send the card to the Foundation
-                DrawFoundation(cardGfx, rank, suit, cardPos);
             }
             else
             {
@@ -203,7 +195,7 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
 }
 
 // Function that draws cards on the board and handles interactions with them
-void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, int foundationPiles[4][14])
+void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14])
 {
     // Do nothing with empty cards
     if (card.isEmpty)
@@ -214,7 +206,7 @@ void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, 
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         // Select the card | Deselect other card and select this one
-        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, cardGfx, cardPos);
+        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, foundation, cardGfx, cardPos);
     }
     if (card.selected)
     {
@@ -300,21 +292,25 @@ int main()
 
     // The four final decks of suits (from Aces to Kings). Are empty at the beginning of the game
     /* The foundationPiles[4][14] will track the cards put at the Ace spots. The number represent 4 suits and 13 ranks. The number for ranks is 14 however. It's becasue the rank property in the Card struct goes from 1 to 13. And what I will use here it's the extra 0 in order to place an Ace.*/
-    int foundationPiles[4][14];
-    int maxSuitDeck{13};
+    bool foundationPiles[4][14];
+
+    // Array of Card structs that will be placed on foundation by copying them from the cardsOnTheBoard array
+    Card foundation[4][14];
 
     // Setting all the values in the foundationPiles array to 0 (no cards) excet the first four cards for each rank (rank 0 below Ace, see the explanation above)
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 14; j++)
         {
+            // Set all the foundation cards to empty
+            foundation[i][j].isEmpty = true;
             if (j == 0)
             {
-                foundationPiles[i][j] = 1;
+                foundationPiles[i][j] = true;
             }
             else
             {
-                foundationPiles[i][j] = 0;
+                foundationPiles[i][j] = false;
             }
         }
     }
@@ -472,7 +468,7 @@ int main()
                 // If the card is facing up
                 else if (visible && !isEmpty)
                 {
-                    DrawAndInteractWithCards(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles);
+                    DrawAndInteractWithCards(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles, foundation);
                 }
 
                 posY += 20; // Adjust the Y position for the cards in the same column
@@ -487,6 +483,20 @@ int main()
             Vector2 drawnCardPos = drawnCards[i].position;
 
             DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, WHITE);
+        }
+
+        // Draw the Foundation
+        Vector2 foundationPos{450, 22};
+        for (int suit = 0; suit < 4; suit++)
+        {
+            for (int rank = 1; rank <= 13; rank++)
+            {
+                if (foundationPiles[suit][rank])
+                {
+                    DrawFoundation(cardGraphics[suit], rank, foundationPos);
+                }
+            }
+            foundationPos.x += 100;
         }
 
         EndDrawing();
