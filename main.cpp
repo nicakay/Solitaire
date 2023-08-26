@@ -11,11 +11,11 @@
 // Define Card as it will show on the board
 struct Card
 {
-    int rank;      // from 1 (Ace) to 13 (King)
-    int suit;      // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
-    bool visible;  // face-up or face-down
-    bool selected; // tells if the card is or is not selected by the user
-    bool isEmpty;  // tells if the card exists or not
+    int rank;          // from 1 (Ace) to 13 (King)
+    int suit;          // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
+    bool visible;      // face-up or face-down
+    bool selected;     // tells if the card is or is not selected by the user
+    bool isEmpty;      // tells if the card exists on the board or not
 };
 
 // Define max numebr of cards that can be drawn from hand
@@ -27,6 +27,7 @@ struct DrawnCard
     int rank;
     int suit;
     Vector2 position;
+    bool selectable;
 };
 
 // Initiate an array of type of DrawnCard
@@ -194,20 +195,27 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
     }
 }
 
-// Function that draws cards on the board and handles interactions with them
-void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Color highlightColor, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14])
+// Function that handles interactions with the cards
+void HandleBoardInteraction(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14])
 {
-    // Do nothing with empty cards
-    if (card.isEmpty)
-        return;
 
     Rectangle thisCardRec = MakeThisRectangle(cardGfx.rec[card.rank - 1].width, cardGfx.rec[card.rank - 1].height, cardPos);
+
     // If the card is clicked
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         // Select the card | Deselect other card and select this one
         SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, foundation, cardGfx, cardPos);
     }
+}
+
+// Function that draws cards on the board
+void DrawCardsOnBoard(CardGraphics cardGfx, Card card, Vector2 cardPos)
+{
+    // Do nothing with empty cards
+    if (card.isEmpty)
+        return;
+
     if (card.selected)
     {
         // LIGHTBLUE - colour tint for a selected card
@@ -217,6 +225,20 @@ void DrawAndInteractWithCards(CardGraphics cardGfx, Card card, Vector2 cardPos, 
     {
         // If a card is not selected, draw it with no colour tint
         DrawTextureRec(cardGfx.texture, cardGfx.rec[card.rank - 1], cardPos, WHITE);
+    }
+}
+
+void HandleHandInteraction(CardGraphics cardGfx, int rank, int suit, Vector2 cardPos, Vector2 mousePointer, bool selectable)
+{
+    Rectangle thisCardRec = MakeThisRectangle(cardGfx.rec[rank - 1].width, cardGfx.rec[rank - 1].height, cardPos);
+
+    // If the card in the Hand pile is clicked
+    if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && selectable)
+    {
+        printf("A card in Hand Pile has been clicked...\n");
+
+        // Select the card | Deselect other card and select this one
+        // SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, foundation, cardGfx, cardPos);
     }
 }
 
@@ -237,7 +259,7 @@ int main()
         deck[i].suit = i / 13;
         deck[i].visible = false;  // Initially, all cards are face-down
         deck[i].selected = false; // Initially, all cards are unselected
-        deck[i].isEmpty = false;  // This will be assigned later
+        deck[i].isEmpty = false;  // This will be redistributed later after creating the cardsOnTheBoard array
     }
 
     // Shuffle the deck using the Fisher-Yates shuffle algorithm
@@ -303,7 +325,7 @@ int main()
         for (int j = 0; j < 14; j++)
         {
             // Set all the foundation cards to empty
-            foundation[i][j].isEmpty = true;
+        
             if (j == 0)
             {
                 foundationPiles[i][j] = true;
@@ -427,6 +449,11 @@ int main()
                 drawnCards[numDrawnCards].rank = rank;
                 drawnCards[numDrawnCards].suit = cardsInHand[righHand - 1].suit;
                 drawnCards[numDrawnCards].position = drawnCardPos;
+                if(numDrawnCards > 0)
+                {
+                    drawnCards[numDrawnCards-1].selectable = false;
+                }
+                drawnCards[numDrawnCards].selectable = true;
 
                 // Increment variables
                 numDrawnCards++;
@@ -468,7 +495,8 @@ int main()
                 // If the card is facing up
                 else if (visible && !isEmpty)
                 {
-                    DrawAndInteractWithCards(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, LIGHTBLUE, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles, foundation);
+                    DrawCardsOnBoard(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos);
+                    HandleBoardInteraction(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles, foundation);
                 }
 
                 posY += 20; // Adjust the Y position for the cards in the same column
@@ -480,9 +508,11 @@ int main()
         {
             int rank = drawnCards[i].rank;
             int suit = drawnCards[i].suit;
+            bool selectable = drawnCards[i].selectable;
             Vector2 drawnCardPos = drawnCards[i].position;
 
             DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, WHITE);
+            HandleHandInteraction(cardGraphics[suit], rank, suit, drawnCardPos, mousePointer, selectable);
         }
 
         // Draw the Foundation
