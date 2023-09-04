@@ -11,11 +11,11 @@
 // Define Card as it will show on the board
 struct Card
 {
-    int rank;          // from 1 (Ace) to 13 (King)
-    int suit;          // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
-    bool visible;      // face-up or face-down
-    bool selected;     // tells if the card is or is not selected by the user
-    bool isEmpty;      // tells if the card exists on the board or not
+    int rank;      // from 1 (Ace) to 13 (King)
+    int suit;      // 0 - Clubs, 1 - Diamonds, 2 - Hearts, 3 - Spades
+    bool visible;  // face-up or face-down
+    bool selected; // tells if the card is or is not selected by the user
+    bool isEmpty;  // tells if the card exists on the board or not
 };
 
 // Define max numebr of cards that can be drawn from hand
@@ -26,8 +26,10 @@ struct DrawnCard
 {
     int rank;
     int suit;
+    bool selectable; // tells if the card is selecteble of not. Only one card (the last drawn card) can be selectable at the same time)
+    bool selected;   // tells if the card is actually selected
+    bool isEmpty;    // tells is the card has been taken from the hand
     Vector2 position;
-    bool selectable;
 };
 
 // Initiate an array of type of DrawnCard
@@ -79,7 +81,7 @@ void DrawFoundation(CardGraphics cardGfx, int rank, Vector2 cardPos)
 }
 
 // Function that handles cards selection
-void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14], CardGraphics cardGfx, Vector2 cardPos)
+void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col, Card **currentlySelectedCard, DrawnCard **currentlySelectedDrawnCard, bool foundationPiles[4][14], Card foundation[4][14], CardGraphics cardGfx, Vector2 cardPos)
 {
     // Variables that stores the [row] and [col] of the previously selected card
     static int oldRow{-1};
@@ -87,11 +89,11 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
 
     if (cardState == CARD_NONE)
     {
-        // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
+        // Check if the card below this card is empty and if the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
         if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1])
         {
-            // Move this card to the Ace spot
-            printf("Moving the card on the ACE PILE...\n");
+            // Move this card to the Foundation
+            printf("Moving the card on the FOUNDATION...\n");
             // Assign true to that card in the foundationPiles array, so that the next card in the rank can be compared
             foundationPiles[suit][rank] = true;
             // Flip the card that was above that card
@@ -129,7 +131,7 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
         else
         {
             // Code for a valid move
-            bool validMove = ((((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1) || ((*currentlySelectedCard)->rank == 13 && cardsOnTheBoard[row][col].isEmpty && col == 0);
+            bool validMove = (((((suit == 1 || suit == 2) && ((*currentlySelectedCard)->suit == 0 || (*currentlySelectedCard)->suit == 3)) || ((suit == 0 || suit == 3) && ((*currentlySelectedCard)->suit == 1 || (*currentlySelectedCard)->suit == 2))) && rank - (*currentlySelectedCard)->rank == 1) || ((*currentlySelectedCard)->rank == 13 && cardsOnTheBoard[row][col].isEmpty && col == 0));
 
             // If a valid move is detected
             if (validMove)
@@ -166,11 +168,11 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
                 (*currentlySelectedCard)->selected = false;
             }
 
-            // Check if the card below this card is empty and is the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
+            // Check if the card below this card is empty and ii the card in the foundationPiles array that has the same suit and the rank lower -1 is set to 1 (in other words if the the card exists or if the current cart is Ace)
             if (cardsOnTheBoard[row][col + 1].isEmpty && foundationPiles[suit][rank - 1])
             {
-                // Move this card to the Ace spot
-                printf("Moving the card on the ACE PILE...\n");
+                // Move this card to the Foundation
+                printf("Moving the card on the FOUNDATION...\n");
 
                 // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
                 foundationPiles[suit][rank] = true;
@@ -184,6 +186,7 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
             else
             {
                 // Select the current card and update the pointer
+                (*currentlySelectedCard)->selected = false;
                 cardsOnTheBoard[row][col].selected = true;
                 *currentlySelectedCard = &cardsOnTheBoard[row][col];
 
@@ -196,7 +199,7 @@ void SelectCard(Card cardsOnTheBoard[][20], int suit, int rank, int row, int col
 }
 
 // Function that handles interactions with the cards
-void HandleBoardInteraction(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, bool foundationPiles[4][14], Card foundation[4][14])
+void HandleBoardInteraction(CardGraphics cardGfx, Card card, Vector2 cardPos, Vector2 mousePointer, Card cardsOnTheBoard[][20], int row, int col, Card **currentlySelectedCard, DrawnCard **currentlySelectedDrawnCard, bool foundationPiles[4][14], Card foundation[4][14])
 {
 
     Rectangle thisCardRec = MakeThisRectangle(cardGfx.rec[card.rank - 1].width, cardGfx.rec[card.rank - 1].height, cardPos);
@@ -205,7 +208,7 @@ void HandleBoardInteraction(CardGraphics cardGfx, Card card, Vector2 cardPos, Ve
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         // Select the card | Deselect other card and select this one
-        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, foundation, cardGfx, cardPos);
+        SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, currentlySelectedDrawnCard, foundationPiles, foundation, cardGfx, cardPos);
     }
 }
 
@@ -228,17 +231,45 @@ void DrawCardsOnBoard(CardGraphics cardGfx, Card card, Vector2 cardPos)
     }
 }
 
-void HandleHandInteraction(CardGraphics cardGfx, int rank, int suit, Vector2 cardPos, Vector2 mousePointer, bool selectable)
+void HandleHandInteraction(CardGraphics cardGfx, DrawnCard *drawnCard, int rank, int suit, Vector2 cardPos, Vector2 mousePointer, bool selectable, bool *selected, DrawnCard **currentlySelectedDrawnCard, bool foundationPiles[4][14], Card foundation[4][14])
 {
     Rectangle thisCardRec = MakeThisRectangle(cardGfx.rec[rank - 1].width, cardGfx.rec[rank - 1].height, cardPos);
 
     // If the card in the Hand pile is clicked
     if (CheckCollisionPointRec(mousePointer, thisCardRec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && selectable)
     {
-        printf("A card in Hand Pile has been clicked...\n");
+        if (cardState == CARD_SELECTED)
+        {
+            printf("Deselecting a card in hand...\n");
+            // Deselect this card
+            *selected = false;
+            // Selected card on the hand pile = 0
+            *currentlySelectedDrawnCard = NULL;
+            cardState = CARD_NONE;
+        }
+        else
+        {
+            // Select this card
+            printf("Selecting a card in hand...\n");
+            *selected = true;
+            *currentlySelectedDrawnCard = drawnCard;
+            cardState = CARD_SELECTED;
 
-        // Select the card | Deselect other card and select this one
-        // SelectCard(cardsOnTheBoard, card.suit, card.rank, row, col, currentlySelectedCard, foundationPiles, foundation, cardGfx, cardPos);
+            // Check if the card of the same suit and rank - 1 exists in the Foundation
+            if (foundationPiles[suit][rank - 1])
+            {
+                // Move this card to the Foundation
+                printf("Moving the card on the FOUNDATION...\n");
+
+                // Assign 1 to that card in the foundationPiles array, so that the next card in the rank can be compared
+                foundationPiles[suit][rank] = true;
+                // Copy the current card to the Foundation
+                foundation[suit][rank] = foundation[suit][rank];
+                // Empty this card spot
+                drawnCard->isEmpty = true;
+                // cardState = CARD_NONE;
+            }
+        }
     }
 }
 
@@ -295,6 +326,8 @@ int main()
     Card cardsInHand[24];
     // Stores the selected card so that I can compare it to the second selected card | NULL means it's not selected
     Card *currentlySelectedCard = NULL;
+    // Does the same for cards drawn from the Hand Pile
+    DrawnCard *currentlySelectedDrawnCard = NULL;
     // Set the CardState enum to NONE - No card is selected at the beginning of the game
     cardState = CARD_NONE;
     // A tracker that will help me to track the number of the cards left in hand
@@ -325,7 +358,7 @@ int main()
         for (int j = 0; j < 14; j++)
         {
             // Set all the foundation cards to empty
-        
+
             if (j == 0)
             {
                 foundationPiles[i][j] = true;
@@ -449,11 +482,21 @@ int main()
                 drawnCards[numDrawnCards].rank = rank;
                 drawnCards[numDrawnCards].suit = cardsInHand[righHand - 1].suit;
                 drawnCards[numDrawnCards].position = drawnCardPos;
-                if(numDrawnCards > 0)
+                drawnCards[numDrawnCards].isEmpty = false;
+                // If there are are other cards already drawn
+                if (numDrawnCards > 0)
                 {
-                    drawnCards[numDrawnCards-1].selectable = false;
+                    // Make then unselectable and if it's selected, deselet it
+                    drawnCards[numDrawnCards - 1].selectable = false;
+                    if (drawnCards[numDrawnCards - 1].selected)
+                    {
+                        drawnCards[numDrawnCards - 1].selected = false;
+                        cardState = CARD_NONE;
+                    }
                 }
                 drawnCards[numDrawnCards].selectable = true;
+                // The drawn card is not selected yet until it's clicked
+                drawnCards[numDrawnCards].selected = false;
 
                 // Increment variables
                 numDrawnCards++;
@@ -496,23 +539,37 @@ int main()
                 else if (visible && !isEmpty)
                 {
                     DrawCardsOnBoard(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos);
-                    HandleBoardInteraction(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, cardsOnTheBoard, row, col, &currentlySelectedCard, foundationPiles, foundation);
+                    HandleBoardInteraction(cardGraphics[suit], cardsOnTheBoard[row][col], cardPos, mousePointer, cardsOnTheBoard, row, col, &currentlySelectedCard, &currentlySelectedDrawnCard, foundationPiles, foundation);
                 }
 
                 posY += 20; // Adjust the Y position for the cards in the same column
             }
         }
 
-        // Draw textures for the cards drawn from the hand
+        // Draw textures for the cards drawn from the hand and handle interactions with them
         for (int i = 0; i < numDrawnCards; i++)
         {
             int rank = drawnCards[i].rank;
             int suit = drawnCards[i].suit;
             bool selectable = drawnCards[i].selectable;
+            bool selected = drawnCards[i].selected;
             Vector2 drawnCardPos = drawnCards[i].position;
 
-            DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, WHITE);
-            HandleHandInteraction(cardGraphics[suit], rank, suit, drawnCardPos, mousePointer, selectable);
+            if (!drawnCards[i].isEmpty)
+            {
+                // Draw the Hand pile cards
+                if (selected)
+                {
+                    DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, LIGHTBLUE);
+                }
+                else
+                {
+                    DrawTextureRec(cardGraphics[suit].texture, cardGraphics[suit].rec[rank - 1], drawnCardPos, WHITE);
+                }
+            }
+
+            // Handle clicks
+            HandleHandInteraction(cardGraphics[suit], &drawnCards[i], rank, suit, drawnCardPos, mousePointer, selectable, &drawnCards[i].selected, &currentlySelectedDrawnCard, foundationPiles, foundation);
         }
 
         // Draw the Foundation
